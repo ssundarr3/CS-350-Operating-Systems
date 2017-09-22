@@ -506,6 +506,7 @@ static const char *mainmenu[] = {
 #endif
 	"[kh] Kernel heap stats              ",
 	"[q] Quit and shut down              ",
+	"[dth] enable DB_THREADS messages    ",
 	NULL
 };
 
@@ -517,6 +518,18 @@ cmd_mainmenu(int n, char **a)
 	(void)a;
 
 	showmenu("OS/161 kernel menu", mainmenu);
+	return 0;
+}
+
+
+static
+int
+enableerrordth(int n, char **a)
+{
+	(void)n;
+	(void)a;
+	
+	dbflags |= 0x0010;	
 	return 0;
 }
 
@@ -582,7 +595,7 @@ static struct {
 	{ "uw1",	uwlocktest1 },
 	{ "uw2",	uwvmstatstest },
 #endif
-
+	{ "dth",        enableerrordth },
 	/* file system assignment tests */
 	{ "fs1",	fstest },
 	{ "fs2",	readstress },
