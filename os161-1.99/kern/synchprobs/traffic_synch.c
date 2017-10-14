@@ -21,7 +21,10 @@
 /*
  * replace this with declarations of any synchronization and other variables you need here
  */
-static struct semaphore *intersectionSem;
+// struct semaphore *intersectionSem;
+struct lock *lock;
+struct cv *cv;
+volatile int v[4][4] = {}; // initialize v with zeroes
 
 
 /* 
@@ -34,13 +37,8 @@ static struct semaphore *intersectionSem;
 void
 intersection_sync_init(void)
 {
-  /* replace this default implementation with your own implementation */
-
-  intersectionSem = sem_create("intersectionSem",1);
-  if (intersectionSem == NULL) {
-    panic("could not create intersection semaphore");
-  }
-  return;
+  cv = cv_create("cv");
+  lock = lock_create("lock");
 }
 
 /* 
@@ -53,9 +51,8 @@ intersection_sync_init(void)
 void
 intersection_sync_cleanup(void)
 {
-  /* replace this default implementation with your own implementation */
-  KASSERT(intersectionSem != NULL);
-  sem_destroy(intersectionSem);
+  cv_destroy(cv);
+  lock_destroy(lock);
 }
 
 
@@ -71,15 +68,36 @@ intersection_sync_cleanup(void)
  *
  * return value: none
  */
+bool canGoNow(int, int); 
+
+bool canGoNow(int o, int d){
+  for(int i=0; i<4; ++i){
+    for(int j=0; j<4; ++j){
+      if(
+	i != j && 
+	v[i][j] != 0 && 
+	!(i == o) &&
+	!(i == d && j == o) &&
+	!(d != j && ((j+1 % 4 == i) || (d+1 % 4 == o)))
+        ){
+        cv_wait(cv, lock);
+        return false;
+      } 
+    }
+  }
+
+  v[o][d] += 1;
+  return true;
+}
 
 void
 intersection_before_entry(Direction origin, Direction destination) 
 {
-  /* replace this default implementation with your own implementation */
-  (void)origin;  /* avoid compiler complaint about unused parameter */
-  (void)destination; /* avoid compiler complaint about unused parameter */
-  KASSERT(intersectionSem != NULL);
-  P(intersectionSem);
+  lock_acquire(lock);
+
+  while(!canGoNow(origin, destination)){} 
+
+  lock_release(lock);
 }
 
 
@@ -97,9 +115,13 @@ intersection_before_entry(Direction origin, Direction destination)
 void
 intersection_after_exit(Direction origin, Direction destination) 
 {
-  /* replace this default implementation with your own implementation */
-  (void)origin;  /* avoid compiler complaint about unused parameter */
-  (void)destination; /* avoid compiler complaint about unused parameter */
-  KASSERT(intersectionSem != NULL);
-  V(intersectionSem);
+  lock_acquire(lock);
+
+  v[origin][destination] -= 1;
+  cv_broadcast(cv, lock);
+
+  lock_release(lock);
 }
+
+
+
